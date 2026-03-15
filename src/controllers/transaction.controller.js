@@ -154,12 +154,8 @@ async function createTransaction(req, res) {
   });
 
   } catch (error) {
-    if(transaction && transaction._id){
-      transaction.status = "FAILED";
-      await transaction.save();
-    }
-    return res.status(500).json({
-      message: "Transaction processing failed",
+    return res.status(400).json({
+      message: "Transaction is pending due to some error. Please try again later.",
       error : error.message
     })
   }
