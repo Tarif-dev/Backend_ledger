@@ -19,10 +19,10 @@ async function createAccountController(req , res) {
  * 
  */
 async function getBalanceController(req,res){
-  const user = req.user ;
+  const accountId = req.params.accountId ;
   const account = await accountModel.findOne({
-    userId : user._id,
-    status : "ACTIVE"
+    _id : accountId,
+    userId : req.user._id
   })
 
   if(!account){
@@ -34,6 +34,7 @@ async function getBalanceController(req,res){
   const balance = await account.getBalance();
 
   res.status(200).json({
+    accountId : account._id,
     balance
   })
 }

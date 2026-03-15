@@ -93,43 +93,47 @@ async function createTransaction(req, res) {
   /**
    * Create transaction (pending)
    */
+  let transaction;
 
+  try {
   const session = await mongoose.startSession();
   session.startTransaction();
 
-  const transaction = await transactionModel.create(
+  transaction = new transactionModel(
     {
       fromAccount,
       toAccount,
       amount,
       idempotencyKey,
       status: "PENDING",
-    },
-    { session },
+    }
   );
 
   const debitLedgerEntry = await ledgerModel.create(
-    {
+    [{
       account: fromAccount,
       amount: amount,
       transaction: transaction._id,
       type: "DEBIT",
-    },
+    }],
     { session },
   );
 
   const creditLedgerEntry = await ledgerModel.create(
-    {
+    [{
       account: toAccount,
       amount: amount,
       transaction: transaction._id,
       type: "CREDIT",
-    },
+    }],
     { session },
   );
 
-  transaction.status = "COMPLETED";
-  await transaction.save({ session });
+  await transactionModel.findOneAndUpdate(
+    { _id: transaction._id },
+    { status: "COMPLETED" },
+    { session }
+  )
 
   await session.commitTransaction();
   session.endSession();
@@ -137,17 +141,28 @@ async function createTransaction(req, res) {
   /**
    * Send email notification
    */
-  await emailService.sendTransactionEmail(
-    req.user.email,
-    req.user.name,
-    amount,
-    toAccount,
-  );
+  // await emailService.sendTransactionEmail(
+  //   req.user.email,
+  //   req.user.name,
+  //   amount,
+  //   toAccount,
+  // );
 
   return res.status(201).json({
     message: "Transaction completed successfully",
     transaction: transaction,
   });
+
+  } catch (error) {
+    if(transaction && transaction._id){
+      transaction.status = "FAILED";
+      await transaction.save();
+    }
+    return res.status(500).json({
+      message: "Transaction processing failed",
+      error : error.message
+    })
+  }
 }
 
 async function createInitialFundsTransaction(req, res) {
